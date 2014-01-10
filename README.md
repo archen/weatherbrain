@@ -8,8 +8,11 @@ Arduino code for WeatherBrain was stitched together using multiple resources:
 
 ### Arduino requirements
 XBee
+
 [Adafruit Sensor Library](https://github.com/adafruit/Adafruit_Sensor)
+
 [Adafruit BMP085 Libarary](https://github.com/adafruit/Adafruit-BMP085-Library)
+
 [Adafruit AM2315 Temp/Humidity Sensor Library](https://github.com/adafruit/Adafruit_AM2315)
 
 ###TODO
