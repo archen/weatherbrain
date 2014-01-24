@@ -1,7 +1,13 @@
 #include <XBee.h>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BMP085.h>
 
 // Create XBee object for data transmission
 XBee xbee = XBee();
+
+// Define BMP085 daughter board
+Adafruit_BMP085 bmp;
 
 // Pin definitions
 #define ANEMOMETER_PIN 2
@@ -17,12 +23,12 @@ XBee xbee = XBee();
 #define TEST_PERIOD 60000        // time to measure wind speed
 #define WIND_RATE 0.746          // one-click per second windspeed
 #define RAIN_FACTOR 0.011        // inches of rain per switch activation
-
+#define DEFAULT_SEALEVEL_HPA 101600 // default value to use for sea level mean pressure
 // Payload to send to brain
 uint8_t payload[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 // SH + SL Address of receiving XBee
-XBeeAddress64 addr64 = XBeeAddress64(0x0013a200, 0x403e0f30);
+XBeeAddress64 addr64 = XBeeAddress64(0x0013a200, 0x4076456C);
 ZBTxRequest zbTx = ZBTxRequest(addr64, payload, sizeof(payload));
 ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 
@@ -49,6 +55,8 @@ volatile unsigned int rain = 0;
 volatile unsigned int temp = 0;
 volatile unsigned int humidity = 0;
 volatile unsigned int baroPressure = 0;
+volatile unsigned int altitude = 0;
+volatile float seaLevelPressure = DEFAULT_SEALEVEL_HPA;
 
 void setup() {
   // Set pin states and enable 20k pull-up resistors
@@ -66,6 +74,17 @@ void setup() {
   
   Serial.begin(9600);
   xbee.setSerial(Serial);
+  
+  char announcement[42] = "XBee radios are communicating\r\n";
+  ZBTxRequest zbTxAnnounce = ZBTxRequest(addr64, (uint8_t*) (announcement), strlen(announcement));
+  xbee.send(zbTxAnnounce);
+  
+  /* Initialise the sensor */
+  if(!bmp.begin())
+  {
+    /* There was a problem detecting the BMP085 ... check your connections */
+    char bmpError[50] = "No BMP085 detected... barometer unavailable";
+  }
 }
 
 void loop() {
@@ -79,6 +98,13 @@ void loop() {
   Serial.println(getWindDirection());
   Serial.println("Rainfall (inches):");
   Serial.println(getRain());*/
+ 
+  baroPressure = bmp.readPressure();
+    
+  temp = bmp.readTemperature();
+    
+  float seaLevelPressure = DEFAULT_SEALEVEL_HPA;
+  altitude = bmp.readAltitude(seaLevelPressure);
   
   getWindSpeed();
   getWindGust();
@@ -115,6 +141,7 @@ void loop() {
   
   xbee.send(zbTx);
 
+
   // flash TX indicator
   flashLed(STATUS_LED, 1, 100);
 
@@ -143,7 +170,7 @@ void loop() {
     // local XBee did not provide a timely TX Status Response -- should not happen
     flashLed(ERROR_LED, 2, 50);
   }
-  
+  *
   // delay 2 minutes
   delay(120000);
 }
